@@ -1,5 +1,5 @@
 const express = require('express')
-const body-parser = require('body-parser')
+const bodyParser = require('body-parser')
 const cors = require('cors')
 
 const knex = require('knex')
@@ -17,10 +17,11 @@ const db = knex({
 const app = express()
 
 app.use(cors())
-app.use(body-parser.json())
+app.use(bodyParser.json())
 
 app.post('/add-staff', (req, res)=>{
 	const { username, password, name, accessLevel } = req.body
+
 	if(!username || !password || !name || accessLevel){
 		res.status(400).json('Incorrect form data. Please try agian.')
 	} else {
@@ -35,15 +36,16 @@ app.post('/add-staff', (req, res)=>{
 			res.status(200).json({status: 'success', data: data})
 		})
 		.catch(err=>{
-			res.status(400).{status: 'fail', data: err})
+			res.status(400).json({status: 'fail', data: err})
 		})
 	}
 })
 
 app.post('/login-staff', (req, res)=>{
 	const { username, password } = req.body
+
 	if(!username || !password){
-		res.status(400).json('Incorrect login credentials. Please try again.')
+		res.status(400).json({'status': 'fail', 'data': 'Incorrect login credentials. Please try again.'})
 	} else {
 		db.raw(`
 			select
@@ -62,23 +64,94 @@ app.post('/login-staff', (req, res)=>{
 					where username = ${username}
 				`)
 				.then(data=>{
-					res.status(200).json(data)
+					res.status(200).json({status: 'success', data:data})
 				})
 				.catch(err=>{
-					res.status(400).json(`Unable to find user data.`)
+					res.status(400).json({status: 'fail', data: `Unable to find user data.`})
 				})
 			}
 		})
 		.catch(err=>{
-			res.status(400).json(`Invalid credentials. Please try again.`)
+			res.status(400).json({status: 'fail', data: `Invalid credentials. Please try again.`})
 		})
 	}
 })
 
-app.put('/add-venue', (req, res)=>{
-	// Receive login
+
+app.get('/staff-list', (req, res)=>{
+	const { username, accessLevel } = req.body
+
+	if(!username || accessLevel != 'Admin'){
+		res.status(400).json({status: 'fail', data: 'Invalid Admin credentials.'})
+	} else {
+		db.raw(`
+			select
+				staff_id,
+				username,
+				name,
+				access_level
+			from staff
+			order by staff_id
+		`)
+		.then(data=>{
+			res.status(200).json({status: 'success', data: data})
+		})
+		.catch(err=>{
+			res.status(400).json({status: 'fail', data: err})
+		})
+	}
 })
 
+app.post('/add-venue', (req, res)=>{
+	// Receive login
+	const { username, accessLevel } = req.body.staffData
+	const { venueID, venueName, address, suburb, state, postcode, fromText, venueType, barcode } = req.body.venueData
+
+	if(!username || accessLevel != 'Admin'){
+		res.status(400).json('Only Admins are allowed to create a new venue.')
+	} else {
+		db.raw(`
+			insert into venues (venue_id, name, address, suburb, state, postcode, from, venue_type, barcode)
+			values (${venueID}, ${venueName}, ${address}, ${suburb}, ${state}, ${postcode}, ${fromText}, ${venueType}, ${barcode})
+		`)
+		.then(data=>{
+			res.status(200).json({status: 'success', data: data})
+		})
+		.catch(err=>{
+			res.status(400).json({status: 'fail', data: err})
+		})
+	}
+})
+
+// ---- STAFF MANAGEMENT ----
+// Add staff
+// Login staff
+// Get list of staff (admins only)
+// Get individual staff data (staff details page)
+// Change staff password
+// Delete staff
+// Update own details
+
+// ---- VENUE MANAGEMENT ----
+// Create venue
+// Get list of venues
+// Update venue details
+
+// ---- USER MANAGEMENT ----
+// Add user to venue
+// Get list of users
+
+// ---- MAILOUT SUBMISSIONS ----
+// Create mailout templates
+// Export mailout submissions
+	// Need Word docs for each type, plus player data CSVs for Nexus venues
+	// Download all files in a ZIP folder
+
+// ---- VENUE DATABASE MANAGEMENT ----
+// Add player
+// Edit player account
+// Upload barcode scans
+
 app.listen(process.env.PORT || 3001, ()=> {
-	console.log(`Listening on port ${process.env.PORT || 3000}`)
+	console.log(`Listening on port ${process.env.PORT || 3001}`)
 })
