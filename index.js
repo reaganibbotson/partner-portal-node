@@ -1,6 +1,6 @@
 const express = require('express')
-const bodyParser = require('body-parser')
 const cors = require('cors')
+const bodyParser = require('body-parser')
 
 const knex = require('knex')
 const moment = require('moment')
@@ -145,12 +145,18 @@ app.post('/add-venue', (req, res)=>{
 // Create mailout templates
 // Export mailout submissions
 	// Need Word docs for each type, plus player data CSVs for Nexus venues
+	// Generate Barcodes for Nexus Rising Sun Hotel (marked as TRUE for barcode column in venues table)
 	// Download all files in a ZIP folder
 
 // ---- VENUE DATABASE MANAGEMENT ----
 // Add player
 // Edit player account
 // Upload barcode scans
+	// Barcode format is:
+		// Venue ID -- padded to fixed length (4)
+		// Player ID -- padded to fixed length (6)
+		// Month-Year of mailout promo -- fixed length (4)
+		// Week of promo (1-4) -- fixed length (1)
 
 app.listen(process.env.PORT || 3001, ()=> {
 	console.log(`Listening on port ${process.env.PORT || 3001}`)
