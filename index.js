@@ -17,9 +17,14 @@ const db = knex({
 const app = express()
 const router = express.Router()
 
+const routes = require('./routes/index')
+
+// Middleware
 app.use(cors())
 app.use(bodyParser.json())
 
+
+// Routes
 app.get('/', (req, res)=>{
 	console.log('Hello there')
 	res.status(200).send('Connected babyyyy')
