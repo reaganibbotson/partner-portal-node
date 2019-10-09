@@ -16,5 +16,8 @@
     "knex": "^0.19.4",
     "moment": "^2.24.0",
     "pg": "^7.12.1"
+  },
+  "devDependencies": {
+    "nodemon": "^1.19.3"
   }
 }

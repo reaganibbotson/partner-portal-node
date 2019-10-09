@@ -9,20 +9,26 @@ const bcrypt = require('bcrypt')
 const db = knex({
   client: 'pg',
   connection: {
-    connectionString: process.env.DATABASE_URL,
+    connectionString: process.env.DATABASE_URL || config.dbURL,
     ssl: true,
   }
 });
 
 const app = express()
+const router = express.Router()
 
 app.use(cors())
 app.use(bodyParser.json())
 
+app.get('/', (req, res)=>{
+	console.log('Hello there')
+	res.status(200).send('Connected babyyyy')
+})
+
 app.post('/add-staff', (req, res)=>{
 	const { username, password, name, accessLevel } = req.body
 
-	if(!username || !password || !name || accessLevel){
+	if(!username || !password || !name || !accessLevel){
 		res.status(400).json('Incorrect form data. Please try agian.')
 	} else {
 		const hash = bcrypt.hashSync(password, 10)
@@ -123,40 +129,6 @@ app.post('/add-venue', (req, res)=>{
 	}
 })
 
-// ---- STAFF MANAGEMENT ----
-// Add staff
-// Login staff
-// Get list of staff (admins only)
-// Get individual staff data (staff details page)
-// Change staff password
-// Delete staff
-// Update own details
-
-// ---- VENUE MANAGEMENT ----
-// Create venue
-// Get list of venues
-// Update venue details
-
-// ---- USER MANAGEMENT ----
-// Add user to venue
-// Get list of users
-
-// ---- MAILOUT SUBMISSIONS ----
-// Create mailout templates
-// Export mailout submissions
-	// Need Word docs for each type, plus player data CSVs for Nexus venues
-	// Generate Barcodes for Nexus Rising Sun Hotel (marked as TRUE for barcode column in venues table)
-	// Download all files in a ZIP folder
-
-// ---- VENUE DATABASE MANAGEMENT ----
-// Add player
-// Edit player account
-// Upload barcode scans
-	// Barcode format is:
-		// Venue ID -- padded to fixed length (4)
-		// Player ID -- padded to fixed length (6)
-		// Month-Year of mailout promo -- fixed length (4)
-		// Week of promo (1-4) -- fixed length (1)
 
 app.listen(process.env.PORT || 3001, ()=> {
 	console.log(`Listening on port ${process.env.PORT || 3001}`)
