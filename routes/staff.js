@@ -8,3 +8,15 @@
 // Update own details
 
 
+const controller = require('../controllers/staff')
+
+module.exports = (router) => {
+	router.route('/add-staff')
+		.post(controller.addStaff)
+
+	router.route('/login-staff')
+		.post(controller.loginStaff)
+
+	router.route('/staff-list/:username')
+		.get(controller.listStaff)
+}
