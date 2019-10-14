@@ -1,11 +1,10 @@
-// ---- VENUE MANAGEMENT ----
-// Create venue
-// Get list of venues
-// Update venue details
-
 const controller = require('../controllers/venue-management')
+const utils = require('../utils')
 
 module.exports = (router) => {
 	router.route('add-venue')
-		.post(controller.addVenue)
+		.post(utils.verifyAdmin, controller.addVenue)
+
+	router.route('get-venues')
+		.post(utils.verifyAdmin, controller.getVenues)
 }

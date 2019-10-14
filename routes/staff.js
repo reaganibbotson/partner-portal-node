@@ -9,14 +9,15 @@
 
 
 const controller = require('../controllers/staff')
+const utils = require('../utils')
 
 module.exports = (router) => {
 	router.route('/add-staff')
-		.post(controller.addStaff)
+		.post(utils.verifyAdmin, controller.addStaff)
 
 	router.route('/login-staff')
 		.post(controller.loginStaff)
 
 	router.route('/staff-list/:username')
-		.get(controller.listStaff)
+		.get(utils.verifyAdmin, controller.listStaff)
 }

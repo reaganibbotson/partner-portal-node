@@ -1,3 +1,8 @@
+// ---- VENUE MANAGEMENT ----
+// Create venue
+// Get list of venues
+// Update venue details
+
 const knex = require('knex')
 const config = require('../config')
 
@@ -12,25 +17,35 @@ const db = knex({
 
 module.exports = {
 	addVenue: (req, res)=>{
-		// Receive login
-		const { username, accessLevel } = req.body.staffData
 		const { venueID, venueName, address, suburb, state, postcode, fromText, venueType, barcode } = req.body.venueData
 
-		if(!username || accessLevel != 'Admin'){
-			res.status(400).json('Only Admins are allowed to create a new venue.')
-		} else {
-			db.raw(`
-				insert into venues (venue_id, name, address, suburb, state, postcode, from, venue_type, barcode)
-				values (${venueID}, ${venueName}, ${address}, ${suburb}, ${state}, ${postcode}, ${fromText}, ${venueType}, ${barcode})
-			`)
-			.then(data=>{
-				res.status(200).json({status: 'success', data: data.rows})
-			})
-			.catch(err=>{
-				res.status(400).json({status: 'fail', data: err})
-			})
-		}
+		db.raw(`
+			insert into venues (venue_id, name, address, suburb, state, postcode, from, venue_type, barcode)
+			values (${venueID}, ${venueName}, ${address}, ${suburb}, ${state}, ${postcode}, ${fromText}, ${venueType}, ${barcode})
+		`)
+		.then(data=>{
+			res.status(200).send(data.rows)
+		})
+		.catch(err=>{
+			res.status(400).send(err)
+		})
 	},
 
+	getVenues: (req, res)=>{
+		db.raw(`
+			select 
+				* 
+			from venues
+		`)
+		.then(data=>{
+			res.status(200).send(data.rows)
+		})
+		.then(err=>{
+			res.status(400).send(err)
+		})
+	}
 
+	updateVenueDetails: (req, res) => {
+		
+	}
 }
