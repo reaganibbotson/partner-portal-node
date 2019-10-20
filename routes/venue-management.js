@@ -3,8 +3,8 @@ const utils = require('../utils')
 
 module.exports = (router) => {
 	router.route('add-venue')
-		.post(utils.verifyAdmin, controller.addVenue)
+		.post(utils.validateToken, utils.verifyAdmin, controller.addVenue)
 
 	router.route('get-venues')
-		.post(utils.verifyAdmin, controller.getVenues)
+		.post(utils.validateToken, utils.verifyAdmin, controller.getVenues)
 }

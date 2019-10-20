@@ -43,9 +43,11 @@ module.exports = {
 		.then(err=>{
 			res.status(400).send(err)
 		})
-	}
+	},
 
 	updateVenueDetails: (req, res) => {
 		
-	}
+	},
+
+	
 }
