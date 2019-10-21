@@ -23,7 +23,7 @@ const db = knex({
 
 
 module.exports = {
-	addStaff:  (req, res)=>{
+	addStaff:  (req, res) => {
 		const { username, password, name, accessLevel } = req.body.staffData
 
 		const hash = bcrypt.hashSync(password, 10)
@@ -41,10 +41,10 @@ module.exports = {
 		})
 	},
 
-	loginStaff: (req, res)=>{
+	loginStaff: (req, res) => {
 		const { username, password } = req.body
 
-		if(!username || !password){
+		if (!username || !password) {
 			res.status(400).json({'status': 'fail', 'data': 'Missing login credentials. Please try again.'})
 		} else {
 			db.raw(`
@@ -55,9 +55,9 @@ module.exports = {
 				from staff
 				where username = ${username}
 			`)
-			.then(data=>{
+			.then(data => {
 				const validPassword = bcrypt.compareSync(password, data[0].password)
-				if(validPassword){
+				if (validPassword) {
 					
 					const payload = {
 						user: data.rows[0].username,
@@ -76,21 +76,21 @@ module.exports = {
 						from staff
 						where username = ${username}
 					`)
-					.then(data=>{
+					.then(data => {
 						res.status(200).send({token: token, result: data.rows})
 					})
-					.catch(err=>{
+					.catch(err => {
 						res.status(400).send(`Unable to find user data.`)
 					})
 				}
 			})
-			.catch(err=>{
+			.catch(err => {
 				res.status(401).send(`Invalid credentials. Please try again.`)
 			})
 		}
 	},
 
-	listStaff: (req, res)=>{
+	listStaff: (req, res) => {
 		db.raw(`
 			select
 				staff_id,
@@ -100,18 +100,18 @@ module.exports = {
 			from staff
 			order by staff_id
 		`)
-		.then(data=>{
+		.then(data => {
 			res.status(200).send(data.rows)
 		})
-		.catch(err=>{
+		.catch(err => {
 			res.status(400).send(err)
 		})
 	},
 
-	getStaffMemberData: (req, res)=>{
+	getStaffMemberData: (req, res) => {
 		const staffID = req.query.id
 		
-		if(!staffID){
+		if (!staffID) {
 			res.status(400).send(`No staff ID found in request.`)
 		}
 
@@ -121,63 +121,88 @@ module.exports = {
 			from staff
 			where staff_id = ${staffID}
 		`)
-		.then(data=>{
+		.then(data => {
 			res.status(200).send(data.rows[0])
 		})
-		.catch(err=>{
+		.catch(err => {
 			res.status(400).send(`Couldn't retrieve staff data for ${staffID}.`)
 		})
 	},
 
-	deleteStaff: (req, res)=>{
+	deleteStaff: (req, res) => {
 		const staffID = req.body.staffID
 
-		if(!staffID){
+		if (!staffID) {
 			res.status(400).send(`No staff ID found in request.`)
 		}
 
 		db.raw(`
 			delete from staff where staff_id = ${staffID}
 		`)
-		.then(data=>{
+		.then(data => {
 			res.status(200).send({message: 'Successfully deleted staff member', result: data.rows[0]})
 		})
-		.catch(err=>{
+		.catch(err => {
 			res.status(404).send({message: 'Couldn\'t delete staff member', error: err})
 		})
 	},
 
-	updateSelf: (req, res)=>{
+	updateSelf: (req, res) => {
 		const {
 			staffID,
 			username,
 			password,
 			name,
-			password,
 			accessLevel
 		} = req.body.staffData
+		
+		let hash = ''
+		if (password) {
+			hash = bcrypt.hashSync(password, 10)
+		} else {
+			hash = db.raw(`
+				select password from staff where username = ${username}
+			`).
+			then(data => {
+				return data.rows[0]
+			})
+			.catch(err => {
+				console.log(err)
+				res.status(500).send('Couldn\'t retrieve current password in DB. Try again.')
+			})
+		}
 
-		const hash = bcrypt.hashSync(password, 10)
 		db.raw(`
 			update staff
 			set username = ${username}, password = ${hash}, name = ${name}, access_level = ${accessLevel}
 			where staff_id = ${staffID}
 		`)
-		.then(data=>{
+		.then(data => {
 			res.status(200).send(data.rows)
 		})
-		.catch(err=>{
+		.catch(err => {
 			res.status(400).send('Update failed. Check data sent and try again if ya feel loike it.')
 		})
 	},
 
-	changePassword: (req, res)=>{
+	changePassword: (req, res) => {
 		const {
 			username,
 			password
 		} = req.body.staffData
 
-		
+		const hash = bcrypt.hashSync(password, 10)
+		db.raw(`
+			update staff
+			set password = ${hash}
+			where username = ${username}
+		`)
+		.then(data => {
+			res.status(200).send(data.rows)
+		})
+		.catch(err => {
+			res.status(500).send('Couldn\'t update password, sorry mate.')
+		})
 	},
 
 	

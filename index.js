@@ -13,7 +13,7 @@ const environment = process.argv[3] || 'production'
 app.use(cors())
 app.use(express.json())
 
-if(environment !== 'production'){
+if (environment !== 'production') {
 	app.use(logger('dev'))
 }
 

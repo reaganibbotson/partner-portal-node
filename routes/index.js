@@ -7,7 +7,7 @@ const venue = require('./venue-management')
 module.exports = (router) => {
 	
 	router.route('/')
-		.get((req, res)=>{
+		.get((req, res) => {
 			res.send('Connected babyyy')
 		})
 

@@ -15,6 +15,12 @@ module.exports = {
 	verifyAdmin: (req, res, next) => {
 		const { username, accessLevel } = req.body.staffData
 
+		console.log(req.decoded)
+
+		if (req.decoded.payload.accessLevel === 'Admin') {
+			console.log('Validated on token. Maybe get rid of the rest?')
+		}
+
 		const credentialCheck = (username, accessLevel) => {
 			return knex.raw(`
 				select
@@ -22,12 +28,12 @@ module.exports = {
 				from staff
 				where username = ${username}
 			`)
-			.then(data=>{
+			.then(data => {
 				if (data.rows[0].access_level === accessLevel){
 					return true
 				}
 			})
-			.catch(err=>{
+			.catch(err => {
 				console.log('Credentials couldn\'t be validated: ', err)
 				return false
 			})
@@ -41,7 +47,7 @@ module.exports = {
 	},
 
 	validateToken: (req, res, next) => {
-		const authHeader = req.headers.authorization || req.body.authorization
+		const authHeader = req.headers.authorization || req.body.authorization || req.query.authorization
 		if (authHeader) {
 			const token = req.headers.authorization.split(' ')[1]
 			const secret = process.env.JWT_SECRET || config.JWT_SECRET
@@ -53,7 +59,8 @@ module.exports = {
 				req.decoded = result
 				next()
 			} catch (err) {
-				throw new Error(err)
+				console.log(err)
+				res.status(500).send('Unable to authenticate token. Access DENIED.')
 			}
 		} else {
 			res.status(401).send('Authentication error. Token required for this route.')
