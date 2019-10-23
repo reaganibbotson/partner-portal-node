@@ -10,7 +10,6 @@ const knex = require('knex')({
 	}
 })
 
-
 module.exports = {
 	verifyAdmin: (req, res, next) => {
 		const { username, accessLevel } = req.body.staffData
