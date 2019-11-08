@@ -10,8 +10,26 @@ const knex = require('knex')({
 	}
 })
 
+const credentialCheck = (username, accessLevel) => {
+	return knex.raw(`
+		select
+			*
+		from staff
+		where username = '${username}'
+	`)
+	.then(data => {
+		if (data.rows[0].access_level === accessLevel){
+			return true
+		}
+	})
+	.catch(err => {
+		console.log('Credentials couldn\'t be validated: ', err)
+		return false
+	})
+}
+
 module.exports = {
-	verifyAdmin: (req, res, next) => {
+	verifyAdmin: async (req, res, next) => {
 		const { username, accessLevel } = req.body.staffData
 
 		console.log(req.decoded)
@@ -20,25 +38,9 @@ module.exports = {
 			console.log('Validated on token. Maybe get rid of the rest?')
 		}
 
-		const credentialCheck = (username, accessLevel) => {
-			return knex.raw(`
-				select
-					*
-				from staff
-				where username = ${username}
-			`)
-			.then(data => {
-				if (data.rows[0].access_level === accessLevel){
-					return true
-				}
-			})
-			.catch(err => {
-				console.log('Credentials couldn\'t be validated: ', err)
-				return false
-			})
-		}
+		const credentialsValid = await credentialCheck(username, accessLevel)
 
-		if (!credentialCheck) {
+		if (!credentialsValid || accessLevel !== 'Admin') {
 			res.status(401).send('Invalid credentials. Must be signed is as Admin.')
 		}
 

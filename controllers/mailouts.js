@@ -136,11 +136,35 @@ module.exports = {
 	mailoutSubmission: (req, res) => {
 		const { venueID, submissionDate, mailType, text1, text2, text3, text4, text5, text6, filters } = req.body.mailout
 
-		
+		db.raw(`
+			insert into venue_subs (venue_id, sub_date, type, text1, text2, text3, text4, text5, text6, filters) 
+			values (${venueID}, ${submissionDate}, ${mailType}, ${text1}, ${text2}, ${text3}, ${text4}, ${text5}, ${text6}, ${filters})
+		`)
+		.then(data => {
+			res.status(200).send(data.rows[0])
+		})
+		.catch(err => {
+			res.status(400).send(err)
+		})
 	},
 
 	exportMailouts: (req, res) => {
-		
+		const { subMonth, subYear } = req.body.submission
+
+		db.raw(`
+			select
+				*
+			from venue_subs
+			where 
+				extract('month' from sub_date) = ${subMonth}
+				and extract('year' from sub_date) = ${subYear}
+		`)
+		.then(data => {
+			res.status(200).send(data)
+		})
+		.catch(err => {
+			res.status(400).send(err)
+		})
 	},
 
 }
