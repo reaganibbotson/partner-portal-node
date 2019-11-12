@@ -8,6 +8,8 @@
 
 const knex = require('knex')
 const moment = require('moment')
+const JSZip = require('jszip')
+
 
 const config = require('../config')
 
@@ -19,6 +21,8 @@ const db = knex({
   }
 })
 
+const path = require('path')
+const fs = require('fs')
 
 const getFirstMonday = () => {
 	let thingo = moment().add(1, 'months').date(1).day(1).format('YYYY-MM-DD')
@@ -40,6 +44,28 @@ const getLastFriday = () => {
 	return thingo
 }
 
+const makeMailoutDoc = async (data) => {
+	const { venue_id, sub_date, type, text1, text2, text3, text4, text5, text6, filters } = data
+	const venueSignoff = await db.raw(`
+			select
+				signoff
+			from venues
+			where venue_id = ${venue_id}
+		`)
+		.then(data => {
+			return data.rows[0].signoff
+		})
+		.catch(err => {
+			console.log('Error getting venue signoff.', err)
+			return err
+		})
+
+
+	
+	
+	return
+}
+
 module.exports = {
 	genericMailout: (req, res) => {
 		const firstMonday = getFirstMonday()
@@ -48,7 +74,7 @@ module.exports = {
 			templateMonth: moment().add(1, 'month').format('YYYY-MM'),
 			startDate: moment().format('YYYY-MM-DD'),
 			endDate: getLastFriday(),
-			intoText: `
+			introText: `
 				You have the chance to win these weekly prizes in ${moment().add(1, 'month').format('MMMM')}:
 				
 				Week 1 & 3 prizes: <<PRIZE_1>> will be drawn at 11am on Monday ${firstMonday} and ${firstMonday + 14} ${moment().add(1,'m').format('MMMM YYYY')}.
@@ -150,7 +176,7 @@ module.exports = {
 
 	exportMailouts: (req, res) => {
 		const { subMonth, subYear } = req.body.submission
-
+		
 		db.raw(`
 			select
 				*
@@ -167,4 +193,31 @@ module.exports = {
 		})
 	},
 
+	
 }
+
+
+
+
+const test = async () => {
+	const data = {
+		id: 123456789,
+		venue_id: 7322,
+		sub_date: '2019-12-01',
+		type: 'mailout', 
+		text1: 'You have the chance to win these weekly prizes in December: Week 1 & 3 prizes: A $250 Christmas Hamper will be drawn at 11am on Monday 9 and 23 December 2019. Week 2 & 4 prizes: A $200 Bunnings Gift Card will be drawn at 11am on Monday 16 and 30 December 2019. Remember to bring in your four weekly entry coupons when visiting the venue to enter into each weekly prize draw for your chance to win. We look forward to seeing you soon. ', 
+		text2: 'Present this voucher to receive a complimentary drink (Glass of house wine or glass of soft drink). Only valid at Abruzzo Club between 1 to 8 December 2019. Not valid with any other offer.',
+		text3: 'Present this voucher to receive a complimentary drink (Glass of house wine or glass of soft drink). Only valid at Abruzzo Club between 9 to 15 December 2019. Not valid with any other offer.',
+		text4: 'Present this voucher to receive a complimentary drink (Glass of house wine or glass of soft drink). Only valid at Abruzzo Club between 16 to 22 December 2019. Not valid with any other offer.',
+		text5: 'Present this voucher to receive a complimentary drink (Glass of house wine or glass of soft drink). Only valid at Abruzzo Club between 23 to 29 December 2019. Not valid with any other offer.',
+		text6: 'hey',
+		filters: 'The Festive Season is here, and we are giving all our Loyalty Members a chance to win some great prizes. As 2019 draws to an end, we sincerely thank all our members for their patronage. On behalf of ALL Management and Staff at the Abruzzo Club, we wish you all a very Merry Christmas and Happy & Safe 2020. We look forward to an exciting 2020.'
+	}
+	
+	console.log('Making mailout doc')
+	const mailoutStuff = await makeMailoutDoc(data)
+
+	return
+}
+
+test()
