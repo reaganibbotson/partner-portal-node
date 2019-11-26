@@ -19,7 +19,6 @@
     "jszip": "^3.2.2",
     "knex": "^0.19.4",
     "moment": "^2.24.0",
-    "officegen": "^0.6.3",
     "pg": "^7.12.1"
   },
   "devDependencies": {
