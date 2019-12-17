@@ -10,7 +10,6 @@ const knex = require('knex')
 const moment = require('moment')
 const JSZip = require('jszip')
 const { Document, Packer, Paragraph, TextRun, UnderlineType, HeadingLevel, AlignmentType, TabStopPosition } = require("docx")
-
 const path = require('path')
 const fs = require('fs')
 
@@ -23,81 +22,6 @@ const db = knex({
     ssl: true,
   }
 })
-
-const getFirstMonday = () => {
-	let thingo = moment().add(1, 'months').date(1).day(1).format('YYYY-MM-DD')
-
-	if (parseInt(moment(thingo).format('MM')) < parseInt(moment().add(1, 'months').format('MM'))) {
-		thingo = moment().add(1, 'months').date(1).day(1).add(1, 'weeks').format('YYYY-MM-DD')
-	}
-
-	return parseInt(moment(thingo).format('DD'))
-}
-
-const getLastFriday = () => {
-	let thingo = moment().add(1, 'months').date(31).day(5).format('YYYY-MM-DD')
-
-	if (parseInt(moment(thingo).format('MM')) > parseInt(moment().add(1, 'months').format('MM'))) {
-		thingo = moment().add(1, 'months').date(31).day(5).subtract(1, 'weeks').format('YYYY-MM-DD')
-	}
-
-	return thingo
-}
-
-const makeBdayDoc = async (data) => {
-	const { venue_id, sub_date, type, text1, text2, text3, text4, text5, text6, filters } = data
-	const venueSignoff = await db.raw(`
-			select
-				boss,
-				boss_role,
-				venue_name
-			from venues
-			where venue_id = ${venue_id}
-		`)
-		.then(data => {
-			return [data.rows[0].boss, data.rows[0].boss_role, data.rows[0].venue_name]
-		})
-		.catch(err => {
-			console.log('Error getting venue signoff.', err)
-			return err
-		})
-		// Initialize b'day document object
-		let docx = officegen('docx')
-
-		docx.on('finalize', (written) => {
-			console.log('File created for: ', venue_id, type)
-		})
-
-		docx.on('error', (err) => {
-			console.log(err)
-		})
-		// Add content to b'day document
-		let pObj = docx.createP()
-		pObj.addText(text1)
-
-		pObj = docx.createP()
-		pObj.addText('Kind regards,')
-
-		pObj = docx.createP()
-		venueSignoff.forEach(line=>{
-			pObj.addText(line)
-			pObj.addLineBreak()
-		})
-		// Add 2 b'day offers to document object
-		for (x = 1; x <= 2; x++) {
-			pObj = docx.createP()
-			pObj.addText(`Offer ${x}`,{bold: true, font_size: 16})
-
-			pObj = docx.createP()
-			if (x === 1) {
-				pObj.addText(text2)
-			} else {
-				pObj.addText(text3)
-			}
-		}
-
-	return docx
-}
 
 module.exports = {
 	genericMailout: (req, res) => {
@@ -178,7 +102,7 @@ module.exports = {
 
 		db.raw(`
 			insert into mailout_templates (date, type, text1, text2, text3, text4, text5, text6, start_date, end_date)
-			values (${templateMonth}, ${mailType}, ${intoText}, ${offer1}, ${offer2}, ${offer3}, ${offer4}, ${venueMarketing}, ${start_date}, ${end_date})
+			values (${templateMonth}::date, ${mailType}, ${intoText}, ${offer1}, ${offer2}, ${offer3}, ${offer4}, ${venueMarketing}, ${start_date}, ${end_date})
 		`)
 		.then(data => {
 			res.status(200).send(data.rows[0])
@@ -193,7 +117,7 @@ module.exports = {
 
 		db.raw(`
 			insert into venue_subs (venue_id, sub_date, type, text1, text2, text3, text4, text5, text6, filters) 
-			values (${venueID}, ${submissionDate}, ${mailType}, ${text1}, ${text2}, ${text3}, ${text4}, ${text5}, ${text6}, ${filters})
+			values (${venueID}, ${submissionDate}::date, ${mailType}, ${text1}, ${text2}, ${text3}, ${text4}, ${text5}, ${text6}, ${filters})
 		`)
 		.then(data => {
 			res.status(200).send(data.rows[0])
@@ -203,10 +127,11 @@ module.exports = {
 		})
 	},
 
-	exportMailouts: (req, res) => {
+	exportMailouts: async (req, res) => {
 		const { subMonth, subYear } = req.body.submission
-		
-		db.raw(`
+
+		// Validate date, check there are subs
+		const submissions = await db.raw(`
 			select
 				*
 			from venue_subs
@@ -215,17 +140,161 @@ module.exports = {
 				and extract('year' from sub_date) = ${subYear}
 		`)
 		.then(data => {
-			res.status(200).send(data)
+			return data
 		})
 		.catch(err => {
-			res.status(400).send(err)
+			return error
 		})
+
+		console.log(submissions)
+
+		if (!submissions) {
+			res.status(500).send('No submissions found.')
+		}
+
+		// If there is an existing zip, clear the file (glob it?)
+		// Create new zip object
+		// For each submission
+			// Generate doc
+			// Add file to zip
+		
 	},
 
 	
 }
 
+const getFirstMonday = () => {
+	let thingo = moment().add(1, 'months').date(1).day(1).format('YYYY-MM-DD')
 
+	if (parseInt(moment(thingo).format('MM')) < parseInt(moment().add(1, 'months').format('MM'))) {
+		thingo = moment().add(1, 'months').date(1).day(1).add(1, 'weeks').format('YYYY-MM-DD')
+	}
+
+	return parseInt(moment(thingo).format('DD'))
+}
+
+const getLastFriday = () => {
+	let thingo = moment().add(1, 'months').date(31).day(5).format('YYYY-MM-DD')
+
+	if (parseInt(moment(thingo).format('MM')) > parseInt(moment().add(1, 'months').format('MM'))) {
+		thingo = moment().add(1, 'months').date(31).day(5).subtract(1, 'weeks').format('YYYY-MM-DD')
+	}
+
+	return thingo
+}
+
+const myDocxStyles = {
+	paragraphStyles: [
+		{
+			id: "Heading1",
+			name: "Heading 1",
+			basedOn: "Normal",
+			next: "Normal",
+			quickFormat: true,
+			run: {
+				font: "Calibri",
+				size: 26,
+				bold: true,
+				color: "000000",
+				underline: {
+					type: UnderlineType.SINGLE,
+					color: "000000",
+				},
+			},
+			paragraph: {
+				alignment: AlignmentType.LEFT,
+				spacing: {
+					line: 340
+				},
+			},
+		},
+		{
+			id: "normalPara",
+			name: "Normal Para",
+			basedOn: "Normal",
+			next: "Normal",
+			quickFormat: true,
+			run: {
+				font: "Calibri",
+				size: 22,
+				bold: false,
+			},
+			paragraph: {
+				spacing: {
+					line: 276, 
+					before: 20 * 72 * 0.1, 
+					after: 20 * 72 * 0.05
+				},
+				rightTabStop: TabStopPosition.MAX,
+				leftTabStop: 453.543307087,
+			},
+		},
+		{
+			id: "wellSpaced",
+			name: "Well Spaced",
+			basedOn: "Normal",
+			run: {
+				font: "Calibri",
+				size: 22,
+				bold: false,
+			},
+			paragraph: {
+				spacing: {
+					line: 240,
+					before: 20 * 72 * 0.1,
+					after: 20 * 72 * 0.1
+				},
+			},
+		},
+		{
+			id: "wellSpacedAfter",
+			name: "Well Spaced After",
+			basedOn: "Normal",
+			run: {
+				font: "Calibri",
+				size: 22,
+				bold: false,
+			},
+			paragraph: {
+				spacing: {
+					line: 240,
+					after: 20 * 72 * 0.1
+				},
+			},
+		},
+		{
+			id: "wellSpacedBefore",
+			name: "Well Spaced Before",
+			basedOn: "Normal",
+			run: {
+				font: "Calibri",
+				size: 22,
+				bold: false,
+			},
+			paragraph: {
+				spacing: {
+					line: 240,
+					before: 20 * 72 * 0.1
+				},
+			},
+		},
+		{
+			id: "noSpaced",
+			name: "No Spaced",
+			basedOn: "Normal",
+			run: {
+				font: "Calibri",
+				size: 22,
+				bold: false,
+			},
+			paragraph: {
+				spacing: {
+					line: 240
+				},
+			},
+		},
+	],
+}
 
 const docxMakeMailout = async (data) => {
 	const { venue_id, sub_date, type, text1, text2, text3, text4, text5, text6, filters } = data
@@ -246,118 +315,7 @@ const docxMakeMailout = async (data) => {
 		})
 
 	const doc = new Document({
-		styles: {
-			paragraphStyles: [
-				{
-					id: "Heading1",
-					name: "Heading 1",
-					basedOn: "Normal",
-					next: "Normal",
-					quickFormat: true,
-					run: {
-						font: "Calibri",
-						size: 26,
-						bold: true,
-						color: "000000",
-						underline: {
-							type: UnderlineType.SINGLE,
-							color: "000000",
-						},
-					},
-					paragraph: {
-						alignment: AlignmentType.LEFT,
-						spacing: {
-							line: 340
-						},
-					},
-				},
-				{
-					id: "normalPara",
-					name: "Normal Para",
-					basedOn: "Normal",
-					next: "Normal",
-					quickFormat: true,
-					run: {
-						font: "Calibri",
-						size: 22,
-						bold: false,
-					},
-					paragraph: {
-						spacing: {
-							line: 276, 
-							before: 20 * 72 * 0.1, 
-							after: 20 * 72 * 0.05
-						},
-						rightTabStop: TabStopPosition.MAX,
-						leftTabStop: 453.543307087,
-					},
-				},
-				{
-					id: "wellSpaced",
-					name: "Well Spaced",
-					basedOn: "Normal",
-					run: {
-						font: "Calibri",
-						size: 22,
-						bold: false,
-					},
-					paragraph: {
-						spacing: {
-							line: 240,
-							before: 20 * 72 * 0.1,
-							after: 20 * 72 * 0.1
-						},
-					},
-				},
-				{
-					id: "wellSpacedAfter",
-					name: "Well Spaced After",
-					basedOn: "Normal",
-					run: {
-						font: "Calibri",
-						size: 22,
-						bold: false,
-					},
-					paragraph: {
-						spacing: {
-							line: 240,
-							after: 20 * 72 * 0.1
-						},
-					},
-				},
-				{
-					id: "wellSpacedBefore",
-					name: "Well Spaced Before",
-					basedOn: "Normal",
-					run: {
-						font: "Calibri",
-						size: 22,
-						bold: false,
-					},
-					paragraph: {
-						spacing: {
-							line: 240,
-							before: 20 * 72 * 0.1
-						},
-					},
-				},
-				{
-					id: "noSpaced",
-					name: "No Spaced",
-					basedOn: "Normal",
-					run: {
-						font: "Calibri",
-						size: 22,
-						bold: false,
-					},
-					paragraph: {
-						spacing: {
-							line: 240
-						},
-					},
-				},
-			],
-		},
+		styles: myDocxStyles
 	})
 	
 	doc.addSection({
@@ -450,118 +408,7 @@ const docxMakeBday = async (data) => {
 		})
 
 	const doc = new Document({
-		styles: {
-			paragraphStyles: [
-				{
-					id: "Heading1",
-					name: "Heading 1",
-					basedOn: "Normal",
-					next: "Normal",
-					quickFormat: true,
-					run: {
-						font: "Calibri",
-						size: 26,
-						bold: true,
-						color: "000000",
-						underline: {
-							type: UnderlineType.SINGLE,
-							color: "000000",
-						},
-					},
-					paragraph: {
-						alignment: AlignmentType.LEFT,
-						spacing: {
-							line: 340
-						},
-					},
-				},
-				{
-					id: "normalPara",
-					name: "Normal Para",
-					basedOn: "Normal",
-					next: "Normal",
-					quickFormat: true,
-					run: {
-						font: "Calibri",
-						size: 22,
-						bold: false,
-					},
-					paragraph: {
-						spacing: {
-							line: 276, 
-							before: 20 * 72 * 0.1, 
-							after: 20 * 72 * 0.05
-						},
-						rightTabStop: TabStopPosition.MAX,
-						leftTabStop: 453.543307087,
-					},
-				},
-				{
-					id: "wellSpaced",
-					name: "Well Spaced",
-					basedOn: "Normal",
-					run: {
-						font: "Calibri",
-						size: 22,
-						bold: false,
-					},
-					paragraph: {
-						spacing: {
-							line: 240,
-							before: 20 * 72 * 0.1,
-							after: 20 * 72 * 0.1
-						},
-					},
-				},
-				{
-					id: "wellSpacedAfter",
-					name: "Well Spaced After",
-					basedOn: "Normal",
-					run: {
-						font: "Calibri",
-						size: 22,
-						bold: false,
-					},
-					paragraph: {
-						spacing: {
-							line: 240,
-							after: 20 * 72 * 0.1
-						},
-					},
-				},
-				{
-					id: "wellSpacedBefore",
-					name: "Well Spaced Before",
-					basedOn: "Normal",
-					run: {
-						font: "Calibri",
-						size: 22,
-						bold: false,
-					},
-					paragraph: {
-						spacing: {
-							line: 240,
-							before: 20 * 72 * 0.1
-						},
-					},
-				},
-				{
-					id: "noSpaced",
-					name: "No Spaced",
-					basedOn: "Normal",
-					run: {
-						font: "Calibri",
-						size: 22,
-						bold: false,
-					},
-					paragraph: {
-						spacing: {
-							line: 240
-						},
-					},
-				},
-			],
-		},
+		styles: myDocxStyles
 	})
 	
 	doc.addSection({
