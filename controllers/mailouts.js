@@ -12,6 +12,7 @@ const JSZip = require('jszip')
 const { Document, Packer, Paragraph, TextRun, UnderlineType, HeadingLevel, AlignmentType, TabStopPosition } = require("docx")
 const path = require('path')
 const fs = require('fs')
+const glob = require('glob')
 
 const config = require('../config')
 
@@ -127,37 +128,79 @@ module.exports = {
 		})
 	},
 
-	exportMailouts: async (req, res) => {
+	exportMailouts: async (req = {body: {submission: {subMonth: 10, subYear: 2019}}}, res = {}) => {
 		const { subMonth, subYear } = req.body.submission
 
-		// Validate date, check there are subs
+		// Validate dates, check there are subs
+		if (typeof subMonth !== 'number' || typeof subYear !== 'number') {
+			res.status(400).send('Year & month are invalid. Check ya self boi.')
+		}
+
 		const submissions = await db.raw(`
 			select
-				*
-			from venue_subs
+				v.venue_name,
+				vs.*
+			from venue_subs vs
+			left join venues v
+				on vs.venue_id = v.venue_id
 			where 
 				extract('month' from sub_date) = ${subMonth}
 				and extract('year' from sub_date) = ${subYear}
 		`)
 		.then(data => {
-			return data
+			return data.rows
 		})
 		.catch(err => {
-			return error
+			return ['Error', err]
 		})
 
-		console.log(submissions)
-
-		if (!submissions) {
-			res.status(500).send('No submissions found.')
+		if (!submissions[0]) {
+			console.log('No subs found')
+			// res.status(500).send('No submissions found.')
+		} else if (submissions[0] === 'Error') {
+			console.log('Error retrieving data.')
+			res.status(500).send('Error retrieving data.')
 		}
 
 		// If there is an existing zip, clear the file (glob it?)
+		await glob(path.join(__dirname, '../temp/', '*.zip'),(err, files)=>{
+			if (err) {
+				console.log(err)
+				res.status(500).send('Unable to clear temp folder. Glob call failed.')
+			}
+			files.forEach((file)=>{
+				fs.unlink(file, (err)=>{
+					if(err){
+						console.log(err)
+					}
+				})
+			})
+		})
+
 		// Create new zip object
+		const zip = new JSZip()
+		let writeData
 		// For each submission
+		for (let submission of submissions) {
 			// Generate doc
+			if (submission.type === 'mailout') {
+				writeData = await docxMakeMailout(submission)
+			} else if (submission.type === 'bday') {
+				writeData = await docxMakeBday(submission)
+			} else {
+				writeData = await docxMakeEmail(submission)
+			}
+
 			// Add file to zip
+			zip.file(`${submission.type}/${submission.venue_name} ${submission.type} - ${moment(submission.sub_date).format('YYYY-MM')}.docx`, writeData)
+		}
 		
+		await zip.generateAsync({type: 'nodebuffer'}).then((content) => {
+			fs.writeFileSync(path.join(__dirname, '../temp/', `${subYear}-${subMonth}.zip`), content)
+			console.log('File written')
+		})
+		
+		res.status(200).sendFile(path.join(__dirname, '../temp/',`${subYear}-${subMonth}.zip`))
 	},
 
 	
@@ -458,55 +501,53 @@ const docxMakeBday = async (data) => {
 }
 
 
-const test2 = async () => {
-
-	const data = {
-		id: 123456789,
-		venue_id: 7322,
-		sub_date: '2019-12-01',
-		type: 'mailout', 
-		text1: 'You have the chance to win these weekly prizes in December: Week 1 & 3 prizes: A $250 Christmas Hamper will be drawn at 11am on Monday 9 and 23 December 2019. Week 2 & 4 prizes: A $200 Bunnings Gift Card will be drawn at 11am on Monday 16 and 30 December 2019. Remember to bring in your four weekly entry coupons when visiting the venue to enter into each weekly prize draw for your chance to win. We look forward to seeing you soon. ', 
-		text2: 'Present this voucher to receive a complimentary drink (Glass of house wine or glass of soft drink). Only valid at Abruzzo Club between 1 to 8 December 2019. Not valid with any other offer.',
-		text3: 'Present this voucher to receive a complimentary drink (Glass of house wine or glass of soft drink). Only valid at Abruzzo Club between 9 to 15 December 2019. Not valid with any other offer.',
-		text4: 'Present this voucher to receive a complimentary drink (Glass of house wine or glass of soft drink). Only valid at Abruzzo Club between 16 to 22 December 2019. Not valid with any other offer.',
-		text5: 'Present this voucher to receive a complimentary drink (Glass of house wine or glass of soft drink). Only valid at Abruzzo Club between 23 to 29 December 2019. Not valid with any other offer.',
-		text6: 'heasefay',
-		filters: []
-	}
-
-	const bdayData = {
-		id: 123456790,
-		venue_id: 7322,
-		sub_date: '2019-12-01',
-		type: 'bday',
-		text1: 'Wishing you a very Happy Birthday and a wonderful year ahead. To help celebrate your Birthday, please find attached two special offers for you to use throughout the month. We look forward to seeing you soon.', 
-		text2: 'Present this voucher to receive a complimentary Drink (Cascade Light or VB or glass of house wine). Only valid at Abruzzo Club between 1 to 15 December 2019. Not valid with any other offer.',
-		text3: 'Present this voucher to receive a complimentary Drink (Cascade Light or VB or glass of house wine). Only valid at Abruzzo Club between 16 to 31 December 2019. Not valid with any other offer.',
-		text4: 'text 4',
-		text5: 'text 5',
-		text6: 'text 6',
-		filters: []
-	}
-
-	const testMailoutData = await docxMakeMailout(data)
-	const testBdayData = await docxMakeBday(bdayData)
-
-	fs.writeFileSync(path.join(__dirname,'examplemailoutdoco.docx'), testMailoutData)
-
-	const zip = new JSZip()
-
-	zip.file('mailouts/testzipfile1.docx', testMailoutData)
-	zip.file('mailouts/testzipfile2.txt', 'Hello hello')
-	zip.file('mailouts/testzipfile3.docx', testMailoutData)
-	zip.file('bdays/testbdayzipfile1.docx', testBdayData)
-
-	await zip.generateAsync({type: 'nodebuffer'})
-		.then((content) => {
-			fs.writeFileSync(path.join(__dirname, 'test2zip.zip'), content)
+const docxMakeEmail = async (data) => {
+	const { venue_id, sub_date, type, text1, text2, text3, text4, text5, text6, filters } = data
+	const venueSignoff = await db.raw(`
+			select
+				boss,
+				boss_role,
+				venue_name
+			from venues
+			where venue_id = ${venue_id}
+		`)
+		.then(data => {
+			return [data.rows[0].boss, data.rows[0].boss_role, data.rows[0].venue_name]
 		})
-	
-	process.exit()
-	return
-}
+		.catch(err => {
+			console.log('Error getting venue signoff.', err)
+			return err
+		})
 
-test2()
+	const doc = new Document({
+		styles: myDocxStyles
+	})
+	
+	doc.addSection({
+		properties: {},
+		children: [
+			new Paragraph({
+				text: text1,
+				style: 'wellSpaced'
+			}),
+			new Paragraph({
+				text: 'Kind regards,',
+				style: 'wellSpaced'
+			}),
+			new Paragraph({
+				text: venueSignoff[0],
+				style: 'wellSpacedBefore'
+			}),
+			new Paragraph({
+				text: venueSignoff[1],
+				style: 'noSpaced'
+			}),
+			new Paragraph({
+				text: venueSignoff[2],
+				style: 'wellSpacedAfter'
+			})
+		]
+	})
+
+	return await Packer.toBuffer(doc)
+}
