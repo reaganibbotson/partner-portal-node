@@ -203,7 +203,36 @@ module.exports = {
 		res.status(200).sendFile(path.join(__dirname, '../temp/',`${subYear}-${subMonth}.zip`))
 	},
 
-	
+	exportDataFiles: async () => {
+		const { subMonth, subYear } = req.body.submission
+
+		// Check which venues need data exported
+		const submissions = await knex.raw(`
+			select 
+				* 
+			from venue_subs
+			where 
+				filters ->> 'filters' != '[]'
+				and extract('year' from sub_date) = '${subYear}'
+				and extract('month' from sub_date) = '${subMonth}'
+		`).then(data => {
+			return data.rows
+		}).catch(err => {
+			return {status: 'failed', data: err}
+		})
+
+		if (data.status) {
+			res.status(500).send({message:'Error getting the submissions.', error: submissions.data})
+		} else if (data.rows.length < 1) {
+			res.status(500).send('No submissions found.')
+		}
+
+		
+
+		// Check if barcodes are necessary 
+			// Generate barcodes for each player if necessary
+	},
+
 }
 
 const getFirstMonday = () => {
@@ -427,9 +456,7 @@ const docxMakeMailout = async (data) => {
 		]
 	})
 
-
 	return await Packer.toBuffer(doc)
-
 }
 
 const docxMakeBday = async (data) => {
