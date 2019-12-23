@@ -163,7 +163,7 @@ module.exports = {
 		}
 
 		// If there is an existing zip, clear the file (glob it?)
-		await glob(path.join(__dirname, '../temp/', '*.zip'),(err, files)=>{
+		await glob(path.join(__dirname, '../temp/', '* Mailouts.zip'),(err, files)=>{
 			if (err) {
 				console.log(err)
 				res.status(500).send('Unable to clear temp folder. Glob call failed.')
@@ -196,11 +196,11 @@ module.exports = {
 		}
 		
 		await zip.generateAsync({type: 'nodebuffer'}).then((content) => {
-			fs.writeFileSync(path.join(__dirname, '../temp/', `${subYear}-${subMonth}.zip`), content)
+			fs.writeFileSync(path.join(__dirname, '../temp/', `${subYear}-${subMonth} Mailouts.zip`), content)
 			console.log('File written')
 		})
 		
-		res.status(200).sendFile(path.join(__dirname, '../temp/',`${subYear}-${subMonth}.zip`))
+		res.status(200).sendFile(path.join(__dirname, '../temp/',`${subYear}-${subMonth} Mailouts.zip`))
 	},
 
 	exportDataFiles: async () => {
@@ -209,25 +209,41 @@ module.exports = {
 		// Check which venues need data exported
 		const submissions = await knex.raw(`
 			select 
-				* 
-			from venue_subs
-			where 
-				filters ->> 'filters' != '[]'
-				and extract('year' from sub_date) = '${subYear}'
-				and extract('month' from sub_date) = '${subMonth}'
+				s.venue_id,
+				s.sub_date,
+				s.type,
+				s.filters,
+				v.barcode
+			from venue_subs s
+			left join venues v
+				on s.venue_id = v.venue_id
+			where
+				and v.venue_type = 'ME'
+				and extract('year' from s.sub_date) = '${subYear}'
+				and extract('month' from s.sub_date) = '${subMonth}'
 		`).then(data => {
 			return data.rows
 		}).catch(err => {
-			return {status: 'failed', data: err}
+			res.status(500).send({message:'Error getting the submissions.', error: err})
 		})
 
-		if (data.status) {
-			res.status(500).send({message:'Error getting the submissions.', error: submissions.data})
-		} else if (data.rows.length < 1) {
+		if (data.rows.length < 1) {
 			res.status(500).send('No submissions found.')
 		}
-
 		
+		const zip = new JSZip()
+		for (let sub of submissions) {
+			// Get player data
+			if (sub.type === 'bday') {
+				let playerData = await getBdayPlayerData(sub.venue_id, sub.filters, sub.barcode, subMonth, subYear)
+			} else if (sub.type === 'mailout') {
+				let playerData = await getPlayerData(sub.venue_id, sub.filters, sub.barcode, subMonth, subYear)
+			} else {
+				let playerdata = await getEmailPlayerData(sub.venue_id)
+			}
+			
+			zip.file(`${sub.type}/${sub.venue_name} ${sub.type} - ${moment(sub.sub_date).format('YYYY-MM')}.csv`, playerData)
+		}
 
 		// Check if barcodes are necessary 
 			// Generate barcodes for each player if necessary
@@ -253,6 +269,67 @@ const getLastFriday = () => {
 	}
 
 	return thingo
+}
+
+const getBdayPlayerData = async (venueID, filters, barcode, subMonth, subYear) => {
+	const playerData = await knex.raw(`
+		select 
+			p.*,
+			v.visits_count
+		from venue_players p
+		left join (
+			select 
+				player_id,
+				venue_id,
+				count(*) as visits_count
+			from player_visits
+			where 
+				date_visit >= date_trunc('month', now()) - interval '3 months'
+				and venue_id = :venue_id
+				and extract('month' from p.birthday) = ${subMonth}
+			group by 
+				player_id,
+				venue_id
+		) v
+			on v.player_id = p.player_id
+	`).then(data => {
+		return data.rows
+	}).catch(err => {
+		return err
+	})
+
+	
+}
+
+const getPlayerData = async (venueID, filters, barcode, subMonth, subYear) => {
+	const playerData = await knex.raw(`
+		select 
+			p.*,
+			v.visits_count
+		from venue_players p
+		left join (
+			select 
+				player_id,
+				venue_id,
+				count(*) as visits_count
+			from player_visits
+			where 
+				date_visit >= date_trunc('month', now()) - interval '3 months'
+				and venue_id = :venue_id
+			group by 
+				player_id,
+				venue_id
+		) v
+			on v.player_id = p.player_id
+	`).then(data => {
+		return data.rows
+	}).catch(err => {
+		return err
+	})
+}
+
+const getEmailPlayerData = async (venueID) => {
+	
 }
 
 const myDocxStyles = {
