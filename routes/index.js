@@ -14,7 +14,7 @@ module.exports = (router) => {
 	staff(router)
 	// users(router)
 	venue(router)
-	// venueDB(router)
-	// mailouts(router)
+	venueDB(router)
+	mailouts(router)
 	return router
 }

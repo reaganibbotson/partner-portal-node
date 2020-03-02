@@ -19,7 +19,7 @@ const db = knex({
     connectionString: process.env.DATABASE_URL || config.dbURI,
     ssl: true,
   }
-});
+})
 
 
 module.exports = {

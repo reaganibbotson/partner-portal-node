@@ -1,4 +1,4 @@
-const controller = require('../controllers/mailout')
+const controller = require('../controllers/mailouts')
 const utils = require('../utils')
 
 module.exports = (router) => {

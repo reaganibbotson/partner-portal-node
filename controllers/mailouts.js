@@ -1,11 +1,3 @@
-// ---- MAILOUT SUBMISSIONS ----
-// Create mailout templates
-// Export mailout submissions
-	// Need Word docs for each type, plus player data CSVs for Nexus venues
-	// Generate Barcodes for Nexus Rising Sun Hotel (marked as TRUE for barcode column in venues table)
-	// Download all files in a ZIP folder
-// Venue submit mailouts
-
 const knex = require('knex')
 const moment = require('moment')
 const JSZip = require('jszip')
@@ -244,9 +236,6 @@ module.exports = {
 			
 			zip.file(`${sub.type}/${sub.venue_name} ${sub.type} - ${moment(sub.sub_date).format('YYYY-MM')}.csv`, playerData)
 		}
-
-		// Check if barcodes are necessary 
-			// Generate barcodes for each player if necessary
 	},
 
 }
@@ -274,7 +263,15 @@ const getLastFriday = () => {
 const getBdayPlayerData = async (venueID, filters, barcode, subMonth, subYear) => {
 	const playerData = await knex.raw(`
 		select 
-			p.*,
+			p.player_id,
+			p.first_name,
+			p.last_name,
+			p.address,
+			p.suburb,
+			p.state,
+			p.postcode,
+			p.venue_id,
+			p.birthday,
 			v.visits_count
 		from venue_players p
 		left join (
@@ -285,26 +282,36 @@ const getBdayPlayerData = async (venueID, filters, barcode, subMonth, subYear) =
 			from player_visits
 			where 
 				date_visit >= date_trunc('month', now()) - interval '3 months'
-				and venue_id = :venue_id
-				and extract('month' from p.birthday) = ${subMonth}
+				and venue_id = ${venueID}
 			group by 
 				player_id,
 				venue_id
 		) v
 			on v.player_id = p.player_id
+		where 
+			extract('month' from p.birthday) = ${subMonth}
+			and status = true
+			and mail_okay = true
+			and v.visits_count >= ${filters}
 	`).then(data => {
 		return data.rows
 	}).catch(err => {
 		return err
 	})
-
-	
 }
 
 const getPlayerData = async (venueID, filters, barcode, subMonth, subYear) => {
 	const playerData = await knex.raw(`
 		select 
-			p.*,
+			p.player_id,
+			p.first_name,
+			p.last_name,
+			p.address,
+			p.suburb,
+			p.state,
+			p.postcode,
+			p.venue_id,
+			p.birthday,
 			v.visits_count
 		from venue_players p
 		left join (
@@ -315,14 +322,28 @@ const getPlayerData = async (venueID, filters, barcode, subMonth, subYear) => {
 			from player_visits
 			where 
 				date_visit >= date_trunc('month', now()) - interval '3 months'
-				and venue_id = :venue_id
+				and venue_id = ${venueID}
 			group by 
 				player_id,
 				venue_id
 		) v
 			on v.player_id = p.player_id
+		where 
+			status = true
+			and mail_okay = true
+			and v.visits_count >= ${filters}
 	`).then(data => {
-		return data.rows
+		if (barcode === true) {
+			return data.rows.forEach(row => {
+				row.barcode1 = '00000000000'.concat(venueID, row.player_id, subMonth, subYear, '01').substr(-20),
+				row.barcode2 = '00000000000'.concat(venueID, row.player_id, subMonth, subYear, '02').substr(-20),
+				row.barcode3 = '00000000000'.concat(venueID, row.player_id, subMonth, subYear, '03').substr(-20),
+				row.barcode4 = '00000000000'.concat(venueID, row.player_id, subMonth, subYear, '04').substr(-20)
+			})
+		} else {
+			console.log(data.rows)
+			return data.rows
+		}
 	}).catch(err => {
 		return err
 	})
