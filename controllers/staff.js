@@ -29,11 +29,9 @@ module.exports = {
 		const hash = bcrypt.hashSync(password, 10)
 		db.raw(`
 			insert into staff (username, password, name, access_level)
-			values (${username}, ${hash}, ${name}, ${accessLevel})
-			returning *
+			values ('${username}', '${hash}', '${name}', '${accessLevel}')
 		`)
 		.then(data => {
-			console.log(data)
 			res.status(200).send(data.rows)
 		})
 		.catch(err=>{
@@ -45,7 +43,7 @@ module.exports = {
 		const { username, password } = req.body
 
 		if (!username || !password) {
-			res.status(400).json({'status': 'fail', 'data': 'Missing login credentials. Please try again.'})
+			res.status(400).send({'status': 'fail', 'data': 'Missing login credentials. Please try again.'})
 		} else {
 			db.raw(`
 				select
@@ -53,10 +51,10 @@ module.exports = {
 					password,
 					access_level
 				from staff
-				where username = ${username}
+				where username = '${username}'
 			`)
 			.then(data => {
-				const validPassword = bcrypt.compareSync(password, data[0].password)
+				const validPassword = bcrypt.compareSync(password, data.rows[0].password)
 				if (validPassword) {
 					
 					const payload = {
@@ -74,7 +72,7 @@ module.exports = {
 						select
 							*
 						from staff
-						where username = ${username}
+						where username = '${username}'
 					`)
 					.then(data => {
 						res.status(200).send({token: token, result: data.rows})
@@ -85,6 +83,7 @@ module.exports = {
 				}
 			})
 			.catch(err => {
+				console.log(err)
 				res.status(401).send(`Invalid credentials. Please try again.`)
 			})
 		}
@@ -109,7 +108,7 @@ module.exports = {
 	},
 
 	getStaffMemberData: (req, res) => {
-		const staffID = req.query.id
+		const staffID = req.params.id
 		
 		if (!staffID) {
 			res.status(400).send(`No staff ID found in request.`)
@@ -117,7 +116,10 @@ module.exports = {
 
 		db.raw(`
 			select
-				*
+				staff_id,
+				username,
+				name,
+				access_level
 			from staff
 			where staff_id = ${staffID}
 		`)
@@ -161,12 +163,10 @@ module.exports = {
 			hash = bcrypt.hashSync(password, 10)
 		} else {
 			hash = db.raw(`
-				select password from staff where username = ${username}
-			`).
-			then(data => {
+				select password from staff where username = '${username}'
+			`).then(data => {
 				return data.rows[0]
-			})
-			.catch(err => {
+			}).catch(err => {
 				console.log(err)
 				res.status(500).send('Couldn\'t retrieve current password in DB. Try again.')
 			})
@@ -174,7 +174,7 @@ module.exports = {
 
 		db.raw(`
 			update staff
-			set username = ${username}, password = ${hash}, name = ${name}, access_level = ${accessLevel}
+			set username = '${username}', password = '${hash}', name = '${name}', access_level = '${accessLevel}'
 			where staff_id = ${staffID}
 		`)
 		.then(data => {
@@ -194,8 +194,8 @@ module.exports = {
 		const hash = bcrypt.hashSync(password, 10)
 		db.raw(`
 			update staff
-			set password = ${hash}
-			where username = ${username}
+			set password = '${hash}'
+			where username = '${username}'
 		`)
 		.then(data => {
 			res.status(200).send(data.rows)
@@ -205,5 +205,22 @@ module.exports = {
 		})
 	},
 
-	
+	createUser: (req, res) => {
+		const {
+			venue_id,
+			name,
+			email,
+			mobile,
+			username,
+			password,
+			status,
+			shop
+		} = req.body.userData
+
+		const hash = bcrypt.hashSync(password, 10)
+		db.raw(`
+			insert into users (venue_id, name, email, mobile, username, password, status, shop)
+			values ( '${venue_id}', '${name}', '${email}', '${mobile}', '${username}', '${password}', '${status}', '${shop}')
+		`)
+	}
 }

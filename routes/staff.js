@@ -11,7 +11,7 @@ module.exports = (router) => {
 	router.route('/staff/list')
 		.get(utils.validateToken, utils.verifyAdmin, controller.listStaff)
 
-	router.route('/staff/member:id')
+	router.route('/staff/member/:id')
 		.get(utils.validateToken, utils.verifyAdmin, controller.getStaffMemberData)
 
 	router.route('/staff/delete')

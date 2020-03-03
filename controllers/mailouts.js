@@ -240,24 +240,25 @@ module.exports = {
 
 }
 
-const getFirstMonday = () => {
-	let thingo = moment().add(1, 'months').date(1).day(1).format('YYYY-MM-DD')
 
-	if (parseInt(moment(thingo).format('MM')) < parseInt(moment().add(1, 'months').format('MM'))) {
-		thingo = moment().add(1, 'months').date(1).day(1).add(1, 'weeks').format('YYYY-MM-DD')
+const getFirstMonday = () => {
+	let monthStart = moment().add(1, 'months').date(1).day(1).format('YYYY-MM-DD')
+
+	if (parseInt(moment(monthStart).format('MM')) < parseInt(moment().add(1, 'months').format('MM'))) {
+		monthStart = moment().add(1, 'months').date(1).day(1).add(1, 'weeks').format('YYYY-MM-DD')
 	}
 
-	return parseInt(moment(thingo).format('DD'))
+	return parseInt(moment(monthStart).format('DD'))
 }
 
 const getLastFriday = () => {
-	let thingo = moment().add(1, 'months').date(31).day(5).format('YYYY-MM-DD')
+	let monthEnd = moment().add(1, 'months').date(31).day(5).format('YYYY-MM-DD')
 
-	if (parseInt(moment(thingo).format('MM')) > parseInt(moment().add(1, 'months').format('MM'))) {
-		thingo = moment().add(1, 'months').date(31).day(5).subtract(1, 'weeks').format('YYYY-MM-DD')
+	if (parseInt(moment(monthEnd).format('MM')) > parseInt(moment().add(1, 'months').format('MM'))) {
+		monthEnd = moment().add(1, 'months').date(31).day(5).subtract(1, 'weeks').format('YYYY-MM-DD')
 	}
 
-	return thingo
+	return monthEnd
 }
 
 const getBdayPlayerData = async (venueID, filters, barcode, subMonth, subYear) => {

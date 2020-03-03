@@ -1,6 +1,5 @@
 // For JWT auth
 const config = require('./config')
-
 const jwt = require('jsonwebtoken')
 const knex = require('knex')({
   client: 'pg',
@@ -32,9 +31,7 @@ module.exports = {
 	verifyAdmin: async (req, res, next) => {
 		const { username, accessLevel } = req.body.staffData
 
-		console.log(req.decoded)
-
-		if (req.decoded.payload.accessLevel === 'Admin') {
+		if (req.decoded.accessLevel === 'Admin') {
 			console.log('Validated on token. Maybe get rid of the rest?')
 		}
 
@@ -49,8 +46,9 @@ module.exports = {
 
 	validateToken: (req, res, next) => {
 		const authHeader = req.headers.authorization || req.body.authorization || req.query.authorization
+		console.log(authHeader)
 		if (authHeader) {
-			const token = req.headers.authorization.split(' ')[1]
+			const token = authHeader.token
 			const secret = process.env.JWT_SECRET || config.JWT_SECRET
 			const options = {
 				expiresIn: '30m'
