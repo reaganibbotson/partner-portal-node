@@ -221,6 +221,12 @@ module.exports = {
 		db.raw(`
 			insert into users (venue_id, name, email, mobile, username, password, status, shop)
 			values ( '${venue_id}', '${name}', '${email}', '${mobile}', '${username}', '${password}', '${status}', '${shop}')
-		`)
-	}
+		`).then(data => {
+			res.status(200).send(data)
+		}).catch(err => {
+			res.status(400).send(err)
+		})
+	},
+
+	
 }

@@ -105,21 +105,6 @@ module.exports = {
 		})
 	},
 
-	mailoutSubmission: (req, res) => {
-		const { venueID, submissionDate, mailType, text1, text2, text3, text4, text5, text6, filters } = req.body.mailout
-
-		db.raw(`
-			insert into venue_subs (venue_id, sub_date, type, text1, text2, text3, text4, text5, text6, filters) 
-			values (${venueID}, ${submissionDate}::date, ${mailType}, ${text1}, ${text2}, ${text3}, ${text4}, ${text5}, ${text6}, ${filters})
-		`)
-		.then(data => {
-			res.status(200).send(data.rows[0])
-		})
-		.catch(err => {
-			res.status(400).send(err)
-		})
-	},
-
 	exportMailouts: async (req = {body: {submission: {subMonth: 10, subYear: 2019}}}, res = {}) => {
 		const { subMonth, subYear } = req.body.submission
 

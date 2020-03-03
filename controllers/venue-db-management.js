@@ -1,3 +1,8 @@
+// Add a player
+// Edit a player
+// Delete a player
+// 
+
 const knex = require('knex')
 const moment = require('moment')
 const path = require('path')
